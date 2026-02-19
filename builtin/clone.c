@@ -47,6 +47,7 @@
 #include "hook.h"
 #include "bundle.h"
 #include "bundle-uri.h"
+#include "submodule.h"
 
 /*
  * Overall FIXMEs:
@@ -75,6 +76,9 @@ static char *option_branch = NULL;
 static int option_verbosity;
 static struct string_list option_required_reference = STRING_LIST_INIT_NODUP;
 static struct string_list option_optional_reference = STRING_LIST_INIT_NODUP;
+
+/* URL-matched references populated by populate_references_for_url(). */
+static struct string_list config_url_reference = STRING_LIST_INIT_DUP;
 static int max_jobs = -1;
 static struct string_list option_recurse_submodules = STRING_LIST_INIT_NODUP;
 static struct list_objects_filter_options filter_options = LIST_OBJECTS_FILTER_INIT;
@@ -155,6 +159,12 @@ static char *get_repo_path(const char *repo, int *is_bundle)
 	return canon;
 }
 
+static void populate_references_for_url(const char *url)
+{
+	string_list_clear(&config_url_reference, 0);
+	add_config_references_for_url(url, &config_url_reference);
+}
+
 static int add_one_reference(struct string_list_item *item, void *cb_data)
 {
 	struct strbuf err = STRBUF_INIT;
@@ -187,6 +197,8 @@ static void setup_reference(void)
 			     add_one_reference, &required);
 	required = 0;
 	for_each_string_list(&option_optional_reference,
+			     add_one_reference, &required);
+	for_each_string_list(&config_url_reference,
 			     add_one_reference, &required);
 }
 
@@ -1244,6 +1256,14 @@ int cmd_clone(int argc,
 	repo_config(the_repository, git_clone_config, NULL);
 
 	/*
+	 * Now that the remote URL is known, collect reference repositories
+	 * from clone.<refpath>.referenceFor whose URL prefix matches the
+	 * URL we are cloning.  These will be used with --reference-if-able
+	 * semantics: a missing or invalid path is skipped with an info message.
+	 */
+	populate_references_for_url(repo);
+
+	/*
 	 * If option_reject_shallow is specified from CLI option,
 	 * ignore config_reject_shallow from git_clone_config.
 	 */
@@ -1308,7 +1328,8 @@ int cmd_clone(int argc,
 		strbuf_reset(&key);
 	}
 
-	if (option_required_reference.nr || option_optional_reference.nr)
+	if (option_required_reference.nr || option_optional_reference.nr ||
+	    config_url_reference.nr)
 		setup_reference();
 
 	remote = remote_get_early(remote_name);

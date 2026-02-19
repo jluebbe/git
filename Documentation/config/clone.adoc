@@ -21,3 +21,33 @@ endif::[]
 	If a partial clone filter is provided (see `--filter` in
 	linkgit:git-rev-list[1]) and `--recurse-submodules` is used, also apply
 	the filter to submodules.
+
+`clone.<refpath>.referenceFor`::
+	A URL prefix that this local reference repository should be used
+	for when cloning.  When `git clone` is invoked with a URL that
+	starts with the configured prefix, `<refpath>` is automatically
+	used as a reference repository with `--reference-if-able` semantics:
+	if `<refpath>` does not exist or is not a valid (non-shallow,
+	non-grafted) local repository, it is silently skipped with an
+	informational message.
++
+Multiple `referenceFor` values may be given under a single `<refpath>`
+to match several URL prefixes with the same local cache.  Conversely,
+multiple `[clone "<refpath>"]` sections may match the same clone URL,
+in which case all matching reference repositories are registered as
+alternates.  Longest-prefix semantics are *not* applied; every
+matching `<refpath>` is used.
++
+Example:
++
+----
+[clone "/srv/cache/linux.git"]
+	referenceFor = https://github.com/torvalds/linux
+	referenceFor = https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux
+
+[clone "/srv/cache/llvm.git"]
+	referenceFor = https://github.com/llvm/
+----
++
+This is analogous to `url.<base>.insteadOf` but for reference
+repositories rather than URL rewriting.

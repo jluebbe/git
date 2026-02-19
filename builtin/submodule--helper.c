@@ -1868,6 +1868,7 @@ static int clone_submodule(const struct module_clone_data *clone_data,
 	struct child_process cp = CHILD_PROCESS_INIT;
 	const char *clone_data_path = clone_data->path;
 	char *to_free = NULL;
+	struct string_list optional_reference = STRING_LIST_INIT_DUP;
 
 	if (validate_submodule_path(clone_data_path) < 0)
 		die(NULL);
@@ -1885,6 +1886,7 @@ static int clone_submodule(const struct module_clone_data *clone_data,
 			die(_("could not create directory '%s'"), sm_gitdir);
 
 		prepare_possible_alternates(clone_data->name, reference);
+		add_config_references_for_url(clone_data->url, &optional_reference);
 
 		strvec_push(&cp.args, "clone");
 		strvec_push(&cp.args, "--no-checkout");
@@ -1899,6 +1901,13 @@ static int clone_submodule(const struct module_clone_data *clone_data,
 
 			for_each_string_list_item(item, reference)
 				strvec_pushl(&cp.args, "--reference",
+					     item->string, NULL);
+		}
+		if (optional_reference.nr) {
+			struct string_list_item *item;
+
+			for_each_string_list_item(item, &optional_reference)
+				strvec_pushl(&cp.args, "--reference-if-able",
 					     item->string, NULL);
 		}
 		if (clone_data->ref_storage_format != REF_STORAGE_FORMAT_UNKNOWN)
@@ -1989,6 +1998,7 @@ static int clone_submodule(const struct module_clone_data *clone_data,
 	free(sm_gitdir);
 	free(p);
 	free(to_free);
+	string_list_clear(&optional_reference, 0);
 	return 0;
 }
 

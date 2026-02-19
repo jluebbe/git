@@ -2758,3 +2758,43 @@ void submodule_name_to_gitdir(struct strbuf *buf, struct repository *r,
 		      " git dir."), buf->buf);
 	}
 }
+
+struct populate_ref_cb_data {
+	const char *url;
+	struct string_list *result;
+};
+
+static int populate_ref_config_cb(const char *key, const char *value,
+				  const struct config_context *ctx UNUSED,
+				  void *cb_data)
+{
+	struct populate_ref_cb_data *data = cb_data;
+	const char *refpath;
+	size_t refpathlen;
+	const char *subkey;
+	char *rp;
+
+	if (parse_config_key(key, "clone", &refpath, &refpathlen, &subkey) ||
+	    !refpath || !refpathlen || strcmp(subkey, "referencefor"))
+		return 0;
+
+	if (!value)
+		return config_error_nonbool(key);
+
+	if (!starts_with(data->url, value))
+		return 0;
+
+	rp = xstrndup(refpath, refpathlen);
+	string_list_insert(data->result, rp);
+	free(rp);
+	return 0;
+}
+
+void add_config_references_for_url(const char *url, struct string_list *result)
+{
+	struct populate_ref_cb_data data = {
+		.url = url,
+		.result = result,
+	};
+	repo_config(the_repository, populate_ref_config_cb, &data);
+}

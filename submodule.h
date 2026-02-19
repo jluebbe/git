@@ -172,4 +172,12 @@ void absorb_git_dir_into_superproject(const char *path,
  */
 int get_superproject_working_tree(struct strbuf *buf);
 
+/*
+ * Read clone.<refpath>.referenceFor entries from config and add each
+ * <refpath> whose URL prefix matches `url` to `result` (deduplicated via
+ * sorted insertion).  Used by git-clone and git-submodule--helper to
+ * apply globally-configured reference repositories.
+ */
+void add_config_references_for_url(const char *url, struct string_list *result);
+
 #endif
